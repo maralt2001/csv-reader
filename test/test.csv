@@ -1,0 +1,11 @@
+id,name,age,city,salary,metadata,tags
+1,Anna Müller,34,Berlin,72000,"{""department"":""Engineering"",""level"":""Senior"",""remote"":true}","[""python"",""typescript"",""docker""]"
+2,Ben Schmidt,28,München,58000,"{""department"":""Design"",""level"":""Mid"",""remote"":false}","[""figma"",""css"",""ux""]"
+3,Clara Weber,41,Hamburg,91000,"{""department"":""Management"",""level"":""Lead"",""remote"":true}",
+4,David Koch,25,Frankfurt,47000,"{""department"":""Engineering"",""level"":""Junior"",""remote"":false}","[""java"",""spring""]"
+5,Eva Braun,38,Köln,83000,,
+6,Frank Huber,52,Stuttgart,105000,"{""department"":""Sales"",""level"":""Director"",""remote"":false}","[""crm"",""salesforce""]"
+7,Greta Lang,31,Berlin,67000,"{""department"":""Engineering"",""level"":""Mid"",""remote"":true}","[""react"",""node"",""graphql""]"
+8,Hans Wolf,44,Dresden,79000,"{""department"":""HR"",""level"":""Senior"",""remote"":false}",
+9,Ida Bauer,29,Hamburg,61000,"{""department"":""Marketing"",""level"":""Mid"",""remote"":true}","[""seo"",""google-ads"",""analytics""]"
+10,Jan Fischer,36,München,88000,"{""department"":""Engineering"",""level"":""Senior"",""remote"":true}","[""rust"",""go"",""kubernetes""]"
