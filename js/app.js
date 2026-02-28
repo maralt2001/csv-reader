@@ -31,6 +31,9 @@ const colToggles    = $('col-toggles');
 const statusBar     = $('status-bar');
 const exportMenu    = $('export-menu');
 const regexCheckbox = $('regex-checkbox');
+const globalPanel   = $('global-panel');
+const globalInput   = $('global-input');
+const globalRegex   = $('global-regex');
 
 // ── Drag & Drop ──────────────────────────────────────────────────────────────
 dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
@@ -202,6 +205,7 @@ function hideUI() {
   statusBar.classList.remove('visible');
   $('pagination-bar').classList.remove('visible');
   colPanel.classList.remove('visible');
+  globalPanel.classList.remove('visible');
   fileInput.value = '';
   renderTabBar();
 }
@@ -276,9 +280,11 @@ function render() {
   thN.className   = 'row-num-head';
   thN.textContent = '#';
   htr.appendChild(thN);
+  const colWidth = `calc((100% - 44px) / ${visCols.length})`;
   visCols.forEach(col => {
     const th = document.createElement('th');
     th.textContent = col;
+    th.style.width = colWidth;
     if (tab.sortCol === col) th.classList.add(tab.sortDir === 1 ? 'sort-asc' : 'sort-desc');
     th.addEventListener('click', () => {
       if (tab.sortCol === col) tab.sortDir *= -1;
@@ -573,3 +579,211 @@ function closeModal() {
 $('modal-close').addEventListener('click', closeModal);
 jsonModal.addEventListener('click', e => { if (e.target === jsonModal) closeModal(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+// ── Globale Suche ─────────────────────────────────────────────────────────────
+$('global-search-btn').addEventListener('click', () => {
+  globalPanel.classList.toggle('visible');
+  if (globalPanel.classList.contains('visible')) {
+    globalInput.focus();
+  } else {
+    closeGlobalPanel();
+  }
+});
+$('global-close-btn').addEventListener('click', closeGlobalPanel);
+
+function closeGlobalPanel() {
+  globalPanel.classList.remove('visible');
+  $('global-results').innerHTML = '';
+  globalInput.value = '';
+  globalInput.classList.remove('regex-error');
+  tabs.forEach(tab => {
+    tab.searchTerm = '';
+    tab.regexMode = false;
+    tab.currentPage = 1;
+  });
+  if (activeTab()) {
+    showUI();
+    syncUIFromTab();
+    render();
+  }
+}
+globalInput.addEventListener('keydown', e => { if (e.key === 'Enter') runGlobalSearch(); });
+$('global-run-btn').addEventListener('click', runGlobalSearch);
+
+function runGlobalSearch() {
+  const term = globalInput.value.trim();
+  const useRegex = globalRegex.checked;
+  const resultsEl = $('global-results');
+  if (!term) { resultsEl.innerHTML = ''; return; }
+
+  let rx = null;
+  if (useRegex) {
+    try { rx = new RegExp(term, 'im'); }
+    catch { globalInput.classList.add('regex-error'); return; }
+  }
+  globalInput.classList.remove('regex-error');
+
+  let totalHits = 0;
+  const groups = [];
+  tabs.forEach((tab, tabIdx) => {
+    const matches = [];
+    tab.allRows.forEach((row, rowIdx) => {
+      const hitCols = tab.headers.filter(h => {
+        const text = searchableText(row[h]);
+        return rx ? rx.test(text) : text.toLowerCase().includes(term.toLowerCase());
+      });
+      if (hitCols.length) matches.push({ rowIdx, row, hitCols });
+    });
+    if (matches.length) { groups.push({ tab, tabIdx, matches }); totalHits += matches.length; }
+  });
+
+  renderGlobalResults(groups, term, useRegex, totalHits);
+  hideTableArea();
+}
+
+function hideTableArea() {
+  tableWrap.classList.remove('visible');
+  $('pagination-bar').classList.remove('visible');
+  statusBar.classList.remove('visible');
+  fileInfo.classList.remove('visible');
+  colPanel.classList.remove('visible');
+}
+
+function highlightTerm(text, term, useRegex) {
+  const esc = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  try {
+    const rx = useRegex
+      ? new RegExp(term, 'gim')
+      : new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+    return esc.replace(rx, m => `<mark>${m}</mark>`);
+  } catch { return esc; }
+}
+
+function renderGlobalResults(groups, term, useRegex, totalHits) {
+  const resultsEl = $('global-results');
+  resultsEl.innerHTML = '';
+
+  if (groups.length === 0) {
+    resultsEl.innerHTML = '<div class="global-no-results">Keine Treffer gefunden.</div>';
+    return;
+  }
+
+  const summaryEl = document.createElement('div');
+  summaryEl.className = 'global-summary';
+  summaryEl.textContent = `${totalHits} Treffer in ${groups.length} Tab${groups.length !== 1 ? 's' : ''}`;
+  resultsEl.appendChild(summaryEl);
+
+  groups.forEach(({ tab, tabIdx, matches }) => {
+    const details = document.createElement('details');
+    details.className = 'global-group';
+    details.open = true;
+
+    const sum = document.createElement('summary');
+    sum.className = 'global-group-header';
+
+    const tabName = document.createElement('span');
+    tabName.className = 'global-tab-name';
+    tabName.textContent = tab.fileName;
+
+    const countEl = document.createElement('span');
+    countEl.className = 'global-count';
+    countEl.textContent = matches.length;
+
+    sum.appendChild(tabName);
+    sum.appendChild(countEl);
+    details.appendChild(sum);
+
+    matches.forEach(({ rowIdx, row, hitCols }) => {
+      const rowEl = document.createElement('div');
+      rowEl.className = 'global-row';
+      rowEl.addEventListener('click', () => jumpToResult(tabIdx, rowIdx, term, useRegex));
+
+      const numEl = document.createElement('span');
+      numEl.className = 'global-row-num';
+      numEl.textContent = `#${rowIdx + 1}`;
+
+      const colsEl = document.createElement('span');
+      colsEl.className = 'global-row-cols';
+
+      const displayCols = hitCols.slice(0, 3);
+      displayCols.forEach((h, i) => {
+        const val = String(row[h] ?? '');
+        const isJSON = tryParseJSON(val) !== null;
+
+        const colNameEl = document.createElement('span');
+        colNameEl.className = 'global-col-name';
+        colNameEl.textContent = h + ': ';
+
+        const valEl = document.createElement('span');
+        if (isJSON) {
+          valEl.textContent = '[JSON …]';
+          valEl.style.color = 'var(--violet)';
+        } else {
+          valEl.innerHTML = highlightTerm(val, term, useRegex);
+        }
+
+        colsEl.appendChild(colNameEl);
+        colsEl.appendChild(valEl);
+
+        if (i < displayCols.length - 1) {
+          const sep = document.createElement('span');
+          sep.className = 'global-sep';
+          sep.textContent = ' · ';
+          colsEl.appendChild(sep);
+        }
+      });
+
+      if (hitCols.length > 3) {
+        const moreEl = document.createElement('span');
+        moreEl.className = 'global-col-name';
+        moreEl.textContent = ` +${hitCols.length - 3} weitere`;
+        colsEl.appendChild(moreEl);
+      }
+
+      rowEl.appendChild(numEl);
+      rowEl.appendChild(colsEl);
+      details.appendChild(rowEl);
+    });
+
+    resultsEl.appendChild(details);
+  });
+}
+
+function jumpToResult(tabIdx, rowIdx, term, useRegex) {
+  activeTabIdx = tabIdx;
+  const tab = tabs[tabIdx];
+  tab.searchTerm = term;
+  tab.regexMode = useRegex;
+  tab.sortCol = null;
+  tab.sortDir = 1;
+
+  // Position im gefilterten Ergebnis bestimmen (filterRows() nutzt jetzt den neuen searchTerm)
+  const filtered = filterRows();
+  const targetRow = tab.allRows[rowIdx];
+  const filteredIdx = filtered.indexOf(targetRow);
+  const effectiveIdx = filteredIdx >= 0 ? filteredIdx : 0;
+
+  if (tab.pageSize !== Infinity) {
+    tab.currentPage = Math.ceil((effectiveIdx + 1) / tab.pageSize);
+  } else {
+    tab.currentPage = 1;
+  }
+
+  showUI();
+  renderTabBar();
+  syncUIFromTab();
+  buildColumnToggles();
+  render();
+
+  requestAnimationFrame(() => {
+    const startIdx = tab.pageSize === Infinity ? 0 : (tab.currentPage - 1) * tab.pageSize;
+    const localIdx = effectiveIdx - startIdx;
+    const rows = tableBody.querySelectorAll('tr');
+    const targetTr = rows[localIdx];
+    if (targetTr) {
+      targetTr.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      targetTr.classList.add('row-highlight');
+      setTimeout(() => targetTr.classList.remove('row-highlight'), 1500);
+    }
+  });
+}
