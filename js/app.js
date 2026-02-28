@@ -36,6 +36,10 @@ const globalPanel   = $('global-panel');
 const globalInput   = $('global-input');
 const globalRegex   = $('global-regex');
 const globalResults = $('global-results');
+const addTabBtn     = $('add-tab-btn');
+const pagePrev      = $('page-prev');
+const pageNext      = $('page-next');
+const pageSizeSelect = $('page-size-select');
 const detailPanel   = $('detail-panel');
 
 // ── Drag & Drop ──────────────────────────────────────────────────────────────
@@ -52,7 +56,7 @@ fileInput.addEventListener('change', e => {
   for (const file of e.target.files) addTab(file);
   fileInput.value = '';
 });
-$('add-tab-btn').addEventListener('click', () => fileInput.click());
+addTabBtn.addEventListener('click', () => fileInput.click());
 
 // ── Tab Operations ────────────────────────────────────────────────────────────
 function addTab(file) {
@@ -86,7 +90,7 @@ function closeTab(idx) {
 
 function renderTabBar() {
   tabBar.querySelectorAll('.tab-item').forEach(el => el.remove());
-  const addBtn = $('add-tab-btn');
+  const addBtn = addTabBtn;
   tabs.forEach((tab, idx) => {
     const item = document.createElement('div');
     item.className = 'tab-item' + (idx === activeTabIdx ? ' active' : '');
@@ -118,8 +122,7 @@ function syncUIFromTab() {
   searchInput.placeholder = tab.regexMode
     ? 'Regex eingeben … z.B. ^Berlin|München$'
     : 'In allen Spalten suchen …';
-  const sel = $('page-size-select');
-  sel.value = tab.pageSize === Infinity ? 'all' : String(tab.pageSize);
+  pageSizeSelect.value = tab.pageSize === Infinity ? 'all' : String(tab.pageSize);
 }
 
 // ── File Loading ─────────────────────────────────────────────────────────────
@@ -255,8 +258,8 @@ function renderPagination(filteredCount) {
   const tab   = activeTab();
   const pages = totalPages(filteredCount);
   $('page-info').textContent = `Seite ${tab.currentPage} von ${pages}`;
-  $('page-prev').disabled = tab.currentPage <= 1;
-  $('page-next').disabled = tab.currentPage >= pages;
+  pagePrev.disabled = tab.currentPage <= 1;
+  pageNext.disabled = tab.currentPage >= pages;
 }
 
 function goToPage(n) {
@@ -540,19 +543,19 @@ $('export-json').addEventListener('click', () => {
   exportMenu.classList.remove('open');
 });
 
-$('page-prev').addEventListener('click', () => {
+pagePrev.addEventListener('click', () => {
   const tab = activeTab();
   if (tab && tab.currentPage > 1) goToPage(tab.currentPage - 1);
 });
 
-$('page-next').addEventListener('click', () => {
+pageNext.addEventListener('click', () => {
   const tab = activeTab();
   if (!tab) return;
   const pages = totalPages(sortRows(filterRows()).length);
   if (tab.currentPage < pages) goToPage(tab.currentPage + 1);
 });
 
-$('page-size-select').addEventListener('change', e => {
+pageSizeSelect.addEventListener('change', e => {
   const tab = activeTab();
   if (!tab) return;
   tab.pageSize = e.target.value === 'all' ? Infinity : Number(e.target.value);
