@@ -1,24 +1,31 @@
-// ── State ────────────────────────────────────────────────────────────────────
-let allRows    = [];
-let headers    = [];
-let hiddenCols = new Set();
-let sortCol    = null;
-let sortDir    = 1;       // 1 = asc, -1 = desc
-let searchTerm  = '';
-let regexMode   = false;
-let fileName    = '';
-let delimiter   = ',';
+// ── Tab State ─────────────────────────────────────────────────────────────────
+function createTab(file) {
+  return {
+    id: Date.now(),
+    fileName: file.name,
+    allRows: [], headers: [],
+    hiddenCols: new Set(),
+    sortCol: null, sortDir: 1,
+    searchTerm: '', regexMode: false,
+    delimiter: ',',
+    currentPage: 1, pageSize: 100,
+  };
+}
+let tabs = [];
+let activeTabIdx = -1;
+function activeTab() { return tabs[activeTabIdx]; }
 
 // ── DOM ──────────────────────────────────────────────────────────────────────
 const $ = id => document.getElementById(id);
-const dropZone    = $('drop-zone');
-const fileInput   = $('file-input');
-const toolbar     = $('toolbar');
-const fileInfo    = $('file-info');
-const tableWrap   = $('table-wrap');
-const tableHead   = $('table-head');
-const tableBody   = $('table-body');
-const searchInput = $('search-input');
+const dropZone      = $('drop-zone');
+const fileInput     = $('file-input');
+const tabBar        = $('tab-bar');
+const toolbar       = $('toolbar');
+const fileInfo      = $('file-info');
+const tableWrap     = $('table-wrap');
+const tableHead     = $('table-head');
+const tableBody     = $('table-body');
+const searchInput   = $('search-input');
 const colPanel      = $('col-panel');
 const colToggles    = $('col-toggles');
 const statusBar     = $('status-bar');
@@ -31,18 +38,86 @@ dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-ove
 dropZone.addEventListener('drop', e => {
   e.preventDefault();
   dropZone.classList.remove('drag-over');
-  const file = e.dataTransfer.files[0];
-  if (file) loadFile(file);
+  for (const file of e.dataTransfer.files) addTab(file);
 });
 dropZone.addEventListener('click', e => { if (e.target.id !== 'browse-btn') fileInput.click(); });
 $('browse-btn').addEventListener('click', () => fileInput.click());
-fileInput.addEventListener('change', e => { if (e.target.files[0]) loadFile(e.target.files[0]); });
+fileInput.addEventListener('change', e => {
+  for (const file of e.target.files) addTab(file);
+  fileInput.value = '';
+});
+$('add-tab-btn').addEventListener('click', () => fileInput.click());
+
+// ── Tab Operations ────────────────────────────────────────────────────────────
+function addTab(file) {
+  const tab = createTab(file);
+  tabs.push(tab);
+  activeTabIdx = tabs.length - 1;
+  renderTabBar();
+  syncUIFromTab();
+  loadFile(file, tab);
+}
+
+function switchTab(idx) {
+  activeTabIdx = idx;
+  renderTabBar();
+  buildColumnToggles();
+  syncUIFromTab();
+  render();
+}
+
+function closeTab(idx) {
+  tabs.splice(idx, 1);
+  if (tabs.length === 0) { activeTabIdx = -1; hideUI(); return; }
+  activeTabIdx = Math.min(idx, tabs.length - 1);
+  renderTabBar();
+  buildColumnToggles();
+  syncUIFromTab();
+  render();
+}
+
+function renderTabBar() {
+  tabBar.querySelectorAll('.tab-item').forEach(el => el.remove());
+  const addBtn = $('add-tab-btn');
+  tabs.forEach((tab, idx) => {
+    const item = document.createElement('div');
+    item.className = 'tab-item' + (idx === activeTabIdx ? ' active' : '');
+
+    const label = document.createElement('span');
+    label.className = 'tab-label';
+    label.textContent = tab.fileName;
+    label.title = tab.fileName;
+    label.addEventListener('click', () => switchTab(idx));
+
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'tab-close';
+    closeBtn.title = 'Tab schließen';
+    closeBtn.textContent = '×';
+    closeBtn.addEventListener('click', e => { e.stopPropagation(); closeTab(idx); });
+
+    item.appendChild(label);
+    item.appendChild(closeBtn);
+    tabBar.insertBefore(item, addBtn);
+  });
+}
+
+function syncUIFromTab() {
+  const tab = activeTab();
+  if (!tab) return;
+  searchInput.value = tab.searchTerm;
+  regexCheckbox.checked = tab.regexMode;
+  searchInput.classList.remove('regex-error');
+  searchInput.placeholder = tab.regexMode
+    ? 'Regex eingeben … z.B. ^Berlin|München$'
+    : 'In allen Spalten suchen …';
+  const sel = $('page-size-select');
+  sel.value = tab.pageSize === Infinity ? 'all' : String(tab.pageSize);
+}
 
 // ── File Loading ─────────────────────────────────────────────────────────────
-function loadFile(file) {
-  fileName = file.name;
+function loadFile(file, tab) {
   const reader = new FileReader();
-  reader.onload = e => parseCSV(e.target.result);
+  reader.onload = e => parseCSV(e.target.result, tab);
   reader.readAsText(file, 'UTF-8');
 }
 
@@ -78,67 +153,72 @@ function parseRow(line, delim) {
   return result;
 }
 
-function parseCSV(text) {
+function parseCSV(text, tab) {
   const lines = text.split(/\r?\n/).filter(l => l.trim() !== '');
   if (lines.length === 0) return;
 
-  delimiter = detectDelimiter(lines[0]);
-  headers   = parseRow(lines[0], delimiter);
-  allRows   = [];
+  tab.delimiter = detectDelimiter(lines[0]);
+  tab.headers   = parseRow(lines[0], tab.delimiter);
+  tab.allRows   = [];
 
   for (let i = 1; i < lines.length; i++) {
-    const vals = parseRow(lines[i], delimiter);
+    const vals = parseRow(lines[i], tab.delimiter);
     const row  = {};
-    headers.forEach((h, idx) => { row[h] = vals[idx] !== undefined ? vals[idx] : ''; });
-    allRows.push(row);
+    tab.headers.forEach((h, idx) => { row[h] = vals[idx] !== undefined ? vals[idx] : ''; });
+    tab.allRows.push(row);
   }
 
-  hiddenCols = new Set();
-  sortCol    = null;
-  sortDir    = 1;
-  searchTerm = '';
-  searchInput.value = '';
+  tab.hiddenCols  = new Set();
+  tab.sortCol     = null;
+  tab.sortDir     = 1;
+  tab.searchTerm  = '';
+  tab.currentPage = 1;
 
-  showUI();
-  buildColumnToggles();
-  render();
+  if (tabs.indexOf(tab) === activeTabIdx) {
+    searchInput.value = '';
+    showUI();
+    buildColumnToggles();
+    render();
+  }
 }
 
 // ── UI Visibility ────────────────────────────────────────────────────────────
 function showUI() {
   dropZone.style.display = 'none';
+  tabBar.classList.add('visible');
   toolbar.classList.add('visible');
   fileInfo.classList.add('visible');
   tableWrap.classList.add('visible');
   statusBar.classList.add('visible');
-  $('info-name').textContent  = fileName;
-  $('info-rows').textContent  = allRows.length;
-  $('info-cols').textContent  = headers.length;
-  $('info-delim').textContent = `Trennzeichen: ${delimiter === '\t' ? 'Tab' : `"${delimiter}"`}`;
+  $('pagination-bar').classList.add('visible');
 }
 
 function hideUI() {
   dropZone.style.display = '';
+  tabBar.classList.remove('visible');
   toolbar.classList.remove('visible');
   fileInfo.classList.remove('visible');
   tableWrap.classList.remove('visible');
   statusBar.classList.remove('visible');
+  $('pagination-bar').classList.remove('visible');
   colPanel.classList.remove('visible');
   fileInput.value = '';
-  allRows = []; headers = [];
+  renderTabBar();
 }
 
 // ── Column Toggles ───────────────────────────────────────────────────────────
 function buildColumnToggles() {
+  const tab = activeTab();
   colToggles.innerHTML = '';
-  headers.forEach(h => {
+  tab.headers.forEach(h => {
     const label = document.createElement('label');
     label.className = 'col-toggle';
     const cb = document.createElement('input');
     cb.type    = 'checkbox';
-    cb.checked = true;
+    cb.checked = !tab.hiddenCols.has(h);
     cb.addEventListener('change', () => {
-      hiddenCols[cb.checked ? 'delete' : 'add'](h);
+      tab.hiddenCols[cb.checked ? 'delete' : 'add'](h);
+      tab.currentPage = 1;
       render();
     });
     label.appendChild(cb);
@@ -147,10 +227,47 @@ function buildColumnToggles() {
   });
 }
 
+// ── Pagination ────────────────────────────────────────────────────────────────
+function paginateRows(rows) {
+  const tab = activeTab();
+  if (tab.pageSize === Infinity) return rows;
+  const start = (tab.currentPage - 1) * tab.pageSize;
+  return rows.slice(start, start + tab.pageSize);
+}
+
+function totalPages(count) {
+  const tab = activeTab();
+  if (tab.pageSize === Infinity) return 1;
+  return Math.ceil(count / tab.pageSize) || 1;
+}
+
+function renderPagination(filteredCount) {
+  const tab   = activeTab();
+  const pages = totalPages(filteredCount);
+  $('page-info').textContent = `Seite ${tab.currentPage} von ${pages}`;
+  $('page-prev').disabled = tab.currentPage <= 1;
+  $('page-next').disabled = tab.currentPage >= pages;
+}
+
+function goToPage(n) {
+  activeTab().currentPage = n;
+  render();
+}
+
 // ── Render ───────────────────────────────────────────────────────────────────
 function render() {
-  const visCols = headers.filter(h => !hiddenCols.has(h));
-  const rows    = sortRows(filterRows());
+  const tab = activeTab();
+  if (!tab) return;
+
+  const visCols     = tab.headers.filter(h => !tab.hiddenCols.has(h));
+  const allFiltered = sortRows(filterRows());
+  const pages       = totalPages(allFiltered.length);
+
+  if (tab.currentPage > pages) tab.currentPage = pages;
+  if (tab.currentPage < 1)     tab.currentPage = 1;
+
+  const pageRows = paginateRows(allFiltered);
+  const startIdx = tab.pageSize === Infinity ? 0 : (tab.currentPage - 1) * tab.pageSize;
 
   // Head
   tableHead.innerHTML = '';
@@ -159,14 +276,14 @@ function render() {
   thN.className   = 'row-num-head';
   thN.textContent = '#';
   htr.appendChild(thN);
-
   visCols.forEach(col => {
     const th = document.createElement('th');
     th.textContent = col;
-    if (sortCol === col) th.classList.add(sortDir === 1 ? 'sort-asc' : 'sort-desc');
+    if (tab.sortCol === col) th.classList.add(tab.sortDir === 1 ? 'sort-asc' : 'sort-desc');
     th.addEventListener('click', () => {
-      if (sortCol === col) sortDir *= -1;
-      else { sortCol = col; sortDir = 1; }
+      if (tab.sortCol === col) tab.sortDir *= -1;
+      else { tab.sortCol = col; tab.sortDir = 1; }
+      tab.currentPage = 1;
       render();
     });
     htr.appendChild(th);
@@ -175,13 +292,12 @@ function render() {
 
   // Body
   tableBody.innerHTML = '';
-  rows.forEach((row, idx) => {
+  pageRows.forEach((row, idx) => {
     const tr = document.createElement('tr');
     const tdN = document.createElement('td');
     tdN.className   = 'row-num';
-    tdN.textContent = idx + 1;
+    tdN.textContent = startIdx + idx + 1;
     tr.appendChild(tdN);
-
     visCols.forEach(col => {
       const td = document.createElement('td');
       td.appendChild(renderCell(row[col]));
@@ -190,10 +306,23 @@ function render() {
     tableBody.appendChild(tr);
   });
 
+  // File info
+  $('info-name').textContent  = tab.fileName;
+  $('info-rows').textContent  = tab.allRows.length;
+  $('info-cols').textContent  = tab.headers.length;
+  $('info-delim').textContent = `Trennzeichen: ${tab.delimiter === '\t' ? 'Tab' : `"${tab.delimiter}"`}`;
+
   // Status
-  $('info-rows').textContent    = allRows.length;
-  $('status-left').textContent  = `${rows.length} von ${allRows.length} Zeilen`;
-  $('status-right').textContent = `${visCols.length} von ${headers.length} Spalten`;
+  if (tab.pageSize === Infinity || allFiltered.length === 0) {
+    $('status-left').textContent = `${allFiltered.length} von ${tab.allRows.length} Zeilen`;
+  } else {
+    const start = startIdx + 1;
+    const end   = Math.min(startIdx + tab.pageSize, allFiltered.length);
+    $('status-left').textContent = `${start}–${end} von ${allFiltered.length} Zeilen`;
+  }
+  $('status-right').textContent = `${visCols.length} von ${tab.headers.length} Spalten`;
+
+  renderPagination(allFiltered.length);
 }
 
 // ── Cell Rendering ───────────────────────────────────────────────────────────
@@ -306,73 +435,111 @@ function searchableText(value) {
 
 // ── Filter & Sort ────────────────────────────────────────────────────────────
 function filterRows() {
-  if (!searchTerm) return [...allRows];
+  const tab = activeTab();
+  if (!tab.searchTerm) return [...tab.allRows];
 
-  if (regexMode) {
+  if (tab.regexMode) {
     let rx;
     try {
-      rx = new RegExp(searchTerm, 'im');
+      rx = new RegExp(tab.searchTerm, 'im');
       searchInput.classList.remove('regex-error');
     } catch {
       searchInput.classList.add('regex-error');
-      return [...allRows];
+      return [...tab.allRows];
     }
-    return allRows.filter(row => headers.some(h => rx.test(searchableText(row[h]))));
+    return tab.allRows.filter(row => tab.headers.some(h => rx.test(searchableText(row[h]))));
   }
 
-  const term = searchTerm.toLowerCase();
-  return allRows.filter(row => headers.some(h => searchableText(row[h]).toLowerCase().includes(term)));
+  const term = tab.searchTerm.toLowerCase();
+  return tab.allRows.filter(row => tab.headers.some(h => searchableText(row[h]).toLowerCase().includes(term)));
 }
 
 function sortRows(rows) {
-  if (!sortCol) return rows;
+  const tab = activeTab();
+  if (!tab.sortCol) return rows;
   return [...rows].sort((a, b) => {
-    const av = a[sortCol] ?? '', bv = b[sortCol] ?? '';
+    const av = a[tab.sortCol] ?? '', bv = b[tab.sortCol] ?? '';
     const an = Number(av), bn = Number(bv);
-    if (!isNaN(an) && !isNaN(bn) && av !== '' && bv !== '') return (an - bn) * sortDir;
-    return String(av).localeCompare(String(bv), undefined, { numeric: true }) * sortDir;
+    if (!isNaN(an) && !isNaN(bn) && av !== '' && bv !== '') return (an - bn) * tab.sortDir;
+    return String(av).localeCompare(String(bv), undefined, { numeric: true }) * tab.sortDir;
   });
 }
 
 // ── Events ───────────────────────────────────────────────────────────────────
-searchInput.addEventListener('input', e => { searchTerm = e.target.value; render(); });
+searchInput.addEventListener('input', e => {
+  const tab = activeTab();
+  if (!tab) return;
+  tab.searchTerm = e.target.value;
+  tab.currentPage = 1;
+  render();
+});
+
 regexCheckbox.addEventListener('change', e => {
-  regexMode = e.target.checked;
+  const tab = activeTab();
+  if (!tab) return;
+  tab.regexMode = e.target.checked;
+  tab.currentPage = 1;
   searchInput.classList.remove('regex-error');
-  searchInput.placeholder = regexMode ? 'Regex eingeben … z.B. ^Berlin|München$' : 'In allen Spalten suchen …';
+  searchInput.placeholder = tab.regexMode
+    ? 'Regex eingeben … z.B. ^Berlin|München$'
+    : 'In allen Spalten suchen …';
   render();
 });
 
 $('toggle-cols-btn').addEventListener('click', () => colPanel.classList.toggle('visible'));
-$('clear-btn').addEventListener('click', hideUI);
+$('clear-btn').addEventListener('click', () => closeTab(activeTabIdx));
 
 $('export-btn').addEventListener('click', e => { e.stopPropagation(); exportMenu.classList.toggle('open'); });
 document.addEventListener('click', () => exportMenu.classList.remove('open'));
 
 $('export-csv').addEventListener('click', () => {
-  const rows = sortRows(filterRows());
-  const lines = [headers.join(delimiter)];
-  rows.forEach(row => lines.push(headers.map(h => quoteCSV(row[h])).join(delimiter)));
-  download(lines.join('\n'), fileName || 'export.csv', 'text/csv');
+  const tab = activeTab();
+  if (!tab) return;
+  const rows  = sortRows(filterRows());
+  const lines = [tab.headers.join(tab.delimiter)];
+  rows.forEach(row => lines.push(tab.headers.map(h => quoteCSV(row[h], tab.delimiter)).join(tab.delimiter)));
+  download(lines.join('\n'), tab.fileName || 'export.csv', 'text/csv');
   exportMenu.classList.remove('open');
 });
 
 $('export-json').addEventListener('click', () => {
+  const tab = activeTab();
+  if (!tab) return;
   const rows = sortRows(filterRows());
   const data = rows.map(row => {
     const obj = {};
-    headers.forEach(h => {
+    tab.headers.forEach(h => {
       const parsed = tryParseJSON(row[h]);
       obj[h] = parsed !== null ? parsed : row[h];
     });
     return obj;
   });
-  download(JSON.stringify(data, null, 2), fileName.replace(/\.\w+$/, '.json'), 'application/json');
+  download(JSON.stringify(data, null, 2), tab.fileName.replace(/\.\w+$/, '.json'), 'application/json');
   exportMenu.classList.remove('open');
 });
 
+$('page-prev').addEventListener('click', () => {
+  const tab = activeTab();
+  if (tab && tab.currentPage > 1) goToPage(tab.currentPage - 1);
+});
+
+$('page-next').addEventListener('click', () => {
+  const tab = activeTab();
+  if (!tab) return;
+  const pages = totalPages(sortRows(filterRows()).length);
+  if (tab.currentPage < pages) goToPage(tab.currentPage + 1);
+});
+
+$('page-size-select').addEventListener('change', e => {
+  const tab = activeTab();
+  if (!tab) return;
+  tab.pageSize = e.target.value === 'all' ? Infinity : Number(e.target.value);
+  tab.currentPage = 1;
+  render();
+});
+
 // ── Helpers ──────────────────────────────────────────────────────────────────
-function quoteCSV(val) {
+function quoteCSV(val, delimiter) {
   if (val == null) return '';
   const s = String(val);
   return (s.includes(delimiter) || s.includes('"') || s.includes('\n'))
@@ -389,7 +556,7 @@ function download(content, name, type) {
 }
 
 // ── JSON Modal ────────────────────────────────────────────────────────────────
-const jsonModal   = $('json-modal');
+const jsonModal    = $('json-modal');
 const modalContent = $('modal-content');
 
 function openModal(jsonStr) {

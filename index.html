@@ -22,6 +22,11 @@
   </div>
 </header>
 
+<div id="tab-bar">
+  <!-- dynamisch befüllt: .tab-item > .tab-label + button.tab-close -->
+  <button id="add-tab-btn" title="Weitere Datei öffnen">+</button>
+</div>
+
 <main>
 
   <!-- Drop Zone -->
@@ -31,7 +36,7 @@
     <p>oder <span class="browse-link" id="browse-btn">Datei auswählen</span></p>
     <p class="hint">Unterstützt RFC 4180 CSV · JSON-Objekte und Arrays in Zellen werden erkannt</p>
   </div>
-  <input type="file" id="file-input" accept=".csv,.txt">
+  <input type="file" id="file-input" accept=".csv,.txt" multiple>
 
   <!-- File Info -->
   <div id="file-info">
@@ -95,6 +100,19 @@
       <thead id="table-head"></thead>
       <tbody id="table-body"></tbody>
     </table>
+  </div>
+
+  <!-- Pagination Bar -->
+  <div id="pagination-bar">
+    <button id="page-prev" class="styled-btn styled-btn-gray"><span class="styled-btn-inner">← Zurück</span></button>
+    <span id="page-info">Seite 1 von 1</span>
+    <button id="page-next" class="styled-btn styled-btn-gray"><span class="styled-btn-inner">Weiter →</span></button>
+    <select id="page-size-select">
+      <option value="50">50 Zeilen</option>
+      <option value="100" selected>100 Zeilen</option>
+      <option value="250">250 Zeilen</option>
+      <option value="all">Alle</option>
+    </select>
   </div>
 
   <!-- Status Bar -->
