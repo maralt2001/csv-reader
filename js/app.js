@@ -34,6 +34,7 @@ const regexCheckbox = $('regex-checkbox');
 const globalPanel   = $('global-panel');
 const globalInput   = $('global-input');
 const globalRegex   = $('global-regex');
+const globalResults = $('global-results');
 
 // ── Drag & Drop ──────────────────────────────────────────────────────────────
 dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
@@ -387,12 +388,18 @@ function renderCell(value) {
   return span;
 }
 
+// ── Shared Helpers ────────────────────────────────────────────────────────────
+function escapeHTML(s) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function textMatches(text, rx, termLower) {
+  return rx ? rx.test(text) : text.toLowerCase().includes(termLower);
+}
+
 // ── JSON Syntax Highlighter ──────────────────────────────────────────────────
 function highlightJSON(json) {
-  const escaped = json
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
+  const escaped = escapeHTML(json);
 
   return escaped.replace(
     /("(?:\\u[0-9a-fA-F]{4}|\\[^u]|[^\\"])*"(?:\s*:)?|\b(?:true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+-]?\d+)?)/g,
@@ -444,8 +451,8 @@ function filterRows() {
   const tab = activeTab();
   if (!tab.searchTerm) return [...tab.allRows];
 
+  let rx = null;
   if (tab.regexMode) {
-    let rx;
     try {
       rx = new RegExp(tab.searchTerm, 'im');
       searchInput.classList.remove('regex-error');
@@ -453,11 +460,9 @@ function filterRows() {
       searchInput.classList.add('regex-error');
       return [...tab.allRows];
     }
-    return tab.allRows.filter(row => tab.headers.some(h => rx.test(searchableText(row[h]))));
   }
-
-  const term = tab.searchTerm.toLowerCase();
-  return tab.allRows.filter(row => tab.headers.some(h => searchableText(row[h]).toLowerCase().includes(term)));
+  const termLower = tab.searchTerm.toLowerCase();
+  return tab.allRows.filter(row => tab.headers.some(h => textMatches(searchableText(row[h]), rx, termLower)));
 }
 
 function sortRows(rows) {
@@ -593,7 +598,7 @@ $('global-close-btn').addEventListener('click', closeGlobalPanel);
 
 function closeGlobalPanel() {
   globalPanel.classList.remove('visible');
-  $('global-results').innerHTML = '';
+  globalResults.innerHTML = '';
   globalInput.value = '';
   globalInput.classList.remove('regex-error');
   tabs.forEach(tab => {
@@ -613,8 +618,7 @@ $('global-run-btn').addEventListener('click', runGlobalSearch);
 function runGlobalSearch() {
   const term = globalInput.value.trim();
   const useRegex = globalRegex.checked;
-  const resultsEl = $('global-results');
-  if (!term) { resultsEl.innerHTML = ''; return; }
+  if (!term) { globalResults.innerHTML = ''; return; }
 
   let rx = null;
   if (useRegex) {
@@ -623,15 +627,13 @@ function runGlobalSearch() {
   }
   globalInput.classList.remove('regex-error');
 
+  const termLower = term.toLowerCase();
   let totalHits = 0;
   const groups = [];
   tabs.forEach((tab, tabIdx) => {
     const matches = [];
     tab.allRows.forEach((row, rowIdx) => {
-      const hitCols = tab.headers.filter(h => {
-        const text = searchableText(row[h]);
-        return rx ? rx.test(text) : text.toLowerCase().includes(term.toLowerCase());
-      });
+      const hitCols = tab.headers.filter(h => textMatches(searchableText(row[h]), rx, termLower));
       if (hitCols.length) matches.push({ rowIdx, row, hitCols });
     });
     if (matches.length) { groups.push({ tab, tabIdx, matches }); totalHits += matches.length; }
@@ -650,7 +652,7 @@ function hideTableArea() {
 }
 
 function highlightTerm(text, term, useRegex) {
-  const esc = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const esc = escapeHTML(text);
   try {
     const rx = useRegex
       ? new RegExp(term, 'gim')
@@ -660,18 +662,17 @@ function highlightTerm(text, term, useRegex) {
 }
 
 function renderGlobalResults(groups, term, useRegex, totalHits) {
-  const resultsEl = $('global-results');
-  resultsEl.innerHTML = '';
+  globalResults.innerHTML = '';
 
   if (groups.length === 0) {
-    resultsEl.innerHTML = '<div class="global-no-results">Keine Treffer gefunden.</div>';
+    globalResults.innerHTML = '<div class="global-no-results">Keine Treffer gefunden.</div>';
     return;
   }
 
   const summaryEl = document.createElement('div');
   summaryEl.className = 'global-summary';
   summaryEl.textContent = `${totalHits} Treffer in ${groups.length} Tab${groups.length !== 1 ? 's' : ''}`;
-  resultsEl.appendChild(summaryEl);
+  globalResults.appendChild(summaryEl);
 
   groups.forEach(({ tab, tabIdx, matches }) => {
     const details = document.createElement('details');
@@ -745,7 +746,7 @@ function renderGlobalResults(groups, term, useRegex, totalHits) {
       details.appendChild(rowEl);
     });
 
-    resultsEl.appendChild(details);
+    globalResults.appendChild(details);
   });
 }
 
