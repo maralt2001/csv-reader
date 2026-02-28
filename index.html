@@ -123,12 +123,28 @@
     <div id="global-results"></div>
   </div>
 
-  <!-- Table -->
-  <div id="table-wrap">
-    <table id="data-table">
-      <thead id="table-head"></thead>
-      <tbody id="table-body"></tbody>
-    </table>
+  <!-- Table + Detail Panel -->
+  <div id="table-area">
+    <div id="table-wrap">
+      <table id="data-table">
+        <thead id="table-head"></thead>
+        <tbody id="table-body"></tbody>
+      </table>
+    </div>
+
+    <div id="detail-panel">
+      <div id="detail-header">
+        <span id="detail-title">Zeile</span>
+        <button id="detail-close" title="Schließen">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2.5">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+      <div id="detail-body"></div>
+    </div>
   </div>
 
   <!-- Pagination Bar -->

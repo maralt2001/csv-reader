@@ -13,6 +13,7 @@ function createTab(file) {
 }
 let tabs = [];
 let activeTabIdx = -1;
+let detailRow = null;
 function activeTab() { return tabs[activeTabIdx]; }
 
 // ── DOM ──────────────────────────────────────────────────────────────────────
@@ -35,6 +36,7 @@ const globalPanel   = $('global-panel');
 const globalInput   = $('global-input');
 const globalRegex   = $('global-regex');
 const globalResults = $('global-results');
+const detailPanel   = $('detail-panel');
 
 // ── Drag & Drop ──────────────────────────────────────────────────────────────
 dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
@@ -63,6 +65,7 @@ function addTab(file) {
 }
 
 function switchTab(idx) {
+  closeDetailPanel();
   activeTabIdx = idx;
   renderTabBar();
   buildColumnToggles();
@@ -71,6 +74,7 @@ function switchTab(idx) {
 }
 
 function closeTab(idx) {
+  closeDetailPanel();
   tabs.splice(idx, 1);
   if (tabs.length === 0) { activeTabIdx = -1; hideUI(); return; }
   activeTabIdx = Math.min(idx, tabs.length - 1);
@@ -207,6 +211,7 @@ function hideUI() {
   $('pagination-bar').classList.remove('visible');
   colPanel.classList.remove('visible');
   globalPanel.classList.remove('visible');
+  closeDetailPanel();
   fileInput.value = '';
   renderTabBar();
 }
@@ -310,6 +315,12 @@ function render() {
       td.appendChild(renderCell(row[col]));
       tr.appendChild(td);
     });
+    tr.addEventListener('click', e => {
+      if (e.target.closest('button')) return;
+      if (row === detailRow) { closeDetailPanel(); return; }
+      openDetailPanel(row, startIdx + idx + 1);
+    });
+    if (row === detailRow) tr.classList.add('row-active');
     tableBody.appendChild(tr);
   });
 
@@ -566,6 +577,55 @@ function download(content, name, type) {
   URL.revokeObjectURL(a.href);
 }
 
+// ── Detail Panel ─────────────────────────────────────────────────────────────
+function openDetailPanel(row, rowNum) {
+  detailRow = row;
+  $('detail-title').textContent = `Zeile #${rowNum}`;
+  const body = $('detail-body');
+  body.innerHTML = '';
+  activeTab().headers.forEach(h => {
+    const field = document.createElement('div');
+    field.className = 'detail-field';
+
+    const label = document.createElement('div');
+    label.className = 'detail-label';
+    label.textContent = h;
+
+    const valueEl = document.createElement('div');
+    valueEl.className = 'detail-value';
+    const val = row[h];
+
+    if (val === '' || val == null) {
+      const empty = document.createElement('span');
+      empty.className = 'cell-empty';
+      empty.textContent = 'leer';
+      valueEl.appendChild(empty);
+    } else {
+      const parsed = tryParseJSON(val);
+      if (parsed !== null) {
+        const pre = document.createElement('pre');
+        pre.className = 'detail-json';
+        pre.innerHTML = highlightJSON(JSON.stringify(parsed, null, 2));
+        valueEl.appendChild(pre);
+      } else {
+        valueEl.textContent = val;
+      }
+    }
+
+    field.appendChild(label);
+    field.appendChild(valueEl);
+    body.appendChild(field);
+  });
+  detailPanel.classList.add('visible');
+}
+
+function closeDetailPanel() {
+  detailRow = null;
+  detailPanel.classList.remove('visible');
+}
+
+$('detail-close').addEventListener('click', closeDetailPanel);
+
 // ── JSON Modal ────────────────────────────────────────────────────────────────
 const jsonModal    = $('json-modal');
 const modalContent = $('modal-content');
@@ -583,7 +643,12 @@ function closeModal() {
 
 $('modal-close').addEventListener('click', closeModal);
 jsonModal.addEventListener('click', e => { if (e.target === jsonModal) closeModal(); });
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    if (jsonModal.classList.contains('open')) closeModal();
+    else closeDetailPanel();
+  }
+});
 
 // ── Globale Suche ─────────────────────────────────────────────────────────────
 $('global-search-btn').addEventListener('click', () => {
