@@ -298,6 +298,7 @@ function render() {
     th.style.width = tab.colWidths[col] || colWidth;
     if (tab.sortCol === col) th.classList.add(tab.sortDir === 1 ? 'sort-asc' : 'sort-desc');
     th.addEventListener('click', () => {
+      if (columnResizing) return;
       if (tab.sortCol === col) tab.sortDir *= -1;
       else { tab.sortCol = col; tab.sortDir = 1; }
       tab.currentPage = 1;
@@ -464,6 +465,8 @@ function searchableText(value) {
 }
 
 // ── Column Resize ─────────────────────────────────────────────────────────────
+let columnResizing = false;
+
 function addResizeHandle(th, col) {
   const handle = document.createElement('div');
   handle.className = 'col-resize-handle';
@@ -478,6 +481,7 @@ function addResizeHandle(th, col) {
     document.body.style.userSelect = 'none';
 
     function onMove(e) {
+      columnResizing = true;
       const w = Math.max(60, startWidth + e.clientX - startX);
       th.style.width = w + 'px';
       activeTab().colWidths[col] = w + 'px';
@@ -488,6 +492,7 @@ function addResizeHandle(th, col) {
       document.body.style.userSelect = '';
       document.removeEventListener('mousemove', onMove);
       document.removeEventListener('mouseup', onUp);
+      setTimeout(() => { columnResizing = false; }, 0);
     }
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
@@ -641,10 +646,33 @@ function openDetailPanel(row, rowNum) {
     } else {
       const parsed = tryParseJSON(val);
       if (parsed !== null) {
+        const jsonStr = JSON.stringify(parsed, null, 2);
+
+        const wrap = document.createElement('div');
+        wrap.className = 'detail-json-wrap';
+
+        const copyBtn = document.createElement('button');
+        copyBtn.className = 'detail-json-copy';
+        copyBtn.title = 'JSON kopieren';
+        copyBtn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+        copyBtn.addEventListener('click', () => {
+          navigator.clipboard.writeText(jsonStr).then(() => {
+            copyBtn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>';
+            copyBtn.classList.add('copied');
+            setTimeout(() => {
+              copyBtn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+              copyBtn.classList.remove('copied');
+            }, 1500);
+          });
+        });
+
         const pre = document.createElement('pre');
         pre.className = 'detail-json';
-        pre.innerHTML = highlightJSON(JSON.stringify(parsed, null, 2));
-        valueEl.appendChild(pre);
+        pre.innerHTML = highlightJSON(jsonStr);
+
+        wrap.appendChild(copyBtn);
+        wrap.appendChild(pre);
+        valueEl.appendChild(wrap);
       } else {
         valueEl.textContent = val;
       }
