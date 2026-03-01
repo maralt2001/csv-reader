@@ -9,6 +9,7 @@ function createTab(file) {
     searchTerm: '', regexMode: false,
     delimiter: ',',
     currentPage: 1, pageSize: 100,
+    colWidths: {},
   };
 }
 let tabs = [];
@@ -184,6 +185,7 @@ function parseCSV(text, tab) {
   tab.sortDir     = 1;
   tab.searchTerm  = '';
   tab.currentPage = 1;
+  tab.colWidths   = {};
 
   if (tabs.indexOf(tab) === activeTabIdx) {
     searchInput.value = '';
@@ -293,7 +295,7 @@ function render() {
   visCols.forEach(col => {
     const th = document.createElement('th');
     th.textContent = col;
-    th.style.width = colWidth;
+    th.style.width = tab.colWidths[col] || colWidth;
     if (tab.sortCol === col) th.classList.add(tab.sortDir === 1 ? 'sort-asc' : 'sort-desc');
     th.addEventListener('click', () => {
       if (tab.sortCol === col) tab.sortDir *= -1;
@@ -301,6 +303,7 @@ function render() {
       tab.currentPage = 1;
       render();
     });
+    addResizeHandle(th, col);
     htr.appendChild(th);
   });
   tableHead.appendChild(htr);
@@ -458,6 +461,38 @@ function searchableText(value) {
     return parts.join('\n');
   }
   return raw;
+}
+
+// ── Column Resize ─────────────────────────────────────────────────────────────
+function addResizeHandle(th, col) {
+  const handle = document.createElement('div');
+  handle.className = 'col-resize-handle';
+  handle.addEventListener('click', e => e.stopPropagation());
+  handle.addEventListener('mousedown', e => {
+    e.stopPropagation();
+    e.preventDefault();
+    const startX     = e.clientX;
+    const startWidth = th.offsetWidth;
+    handle.classList.add('resizing');
+    document.body.style.cursor     = 'col-resize';
+    document.body.style.userSelect = 'none';
+
+    function onMove(e) {
+      const w = Math.max(60, startWidth + e.clientX - startX);
+      th.style.width = w + 'px';
+      activeTab().colWidths[col] = w + 'px';
+    }
+    function onUp() {
+      handle.classList.remove('resizing');
+      document.body.style.cursor     = '';
+      document.body.style.userSelect = '';
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    }
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
+  th.appendChild(handle);
 }
 
 // ── Filter & Sort ────────────────────────────────────────────────────────────

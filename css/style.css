@@ -509,6 +509,23 @@ th {
   cursor: pointer;
   user-select: none;
   transition: background var(--transition);
+  position: relative;
+}
+
+.col-resize-handle {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 5px;
+  cursor: col-resize;
+  z-index: 1;
+  border-right: 2px solid transparent;
+  transition: border-color var(--transition);
+}
+.col-resize-handle:hover,
+.col-resize-handle.resizing {
+  border-right-color: var(--cyan-400);
 }
 th:hover { background: rgba(34, 211, 238, 0.07); }
 th.sort-asc::after  { content: " ▲"; font-size: 9px; }
