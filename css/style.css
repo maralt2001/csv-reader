@@ -42,10 +42,10 @@ body {
 header {
   background: var(--bg-surface);
   border-bottom: 1px solid var(--border);
-  padding: 14px 24px;
+  padding: 12px 24px;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
   position: relative;
 }
 header::after {
@@ -59,8 +59,66 @@ header::after {
   opacity: 0.6;
   pointer-events: none;
 }
-header h1 { font-size: 20px; font-weight: 600; color: var(--cyan-400); letter-spacing: -0.01em; }
-header .subtitle { color: var(--text-secondary); font-size: 13px; }
+
+.header-logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  background: rgba(34, 211, 238, 0.1);
+  border: 1px solid rgba(34, 211, 238, 0.2);
+  color: var(--cyan-400);
+  flex-shrink: 0;
+  box-shadow: 0 0 12px rgba(34, 211, 238, 0.08);
+}
+
+.header-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+header h1 {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+.header-title-accent { color: var(--cyan-400); }
+
+header .subtitle {
+  color: var(--text-secondary);
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.header-badge {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+.badge-local {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  background: rgba(74, 222, 128, 0.08);
+  border: 1px solid rgba(74, 222, 128, 0.2);
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--green);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  font-family: var(--font-mono);
+}
+.badge-local svg { color: var(--green); opacity: 0.8; }
 
 /* ── Tab Bar ── */
 #tab-bar {
