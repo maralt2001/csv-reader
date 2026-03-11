@@ -85,11 +85,19 @@ header::after {
 header h1 {
   font-size: 17px;
   font-weight: 700;
-  color: var(--text-primary);
   letter-spacing: -0.02em;
   line-height: 1.2;
+  background: linear-gradient(120deg, #e5e7eb 0%, #22d3ee 50%, #67e8f9 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: heading-shimmer 4s ease-in-out infinite alternate;
 }
-.header-title-accent { color: var(--cyan-400); }
+@keyframes heading-shimmer {
+  from { background-position: 0% center; }
+  to   { background-position: 100% center; }
+}
 
 header .subtitle {
   color: var(--text-secondary);
