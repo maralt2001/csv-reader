@@ -46,8 +46,20 @@ header {
   display: flex;
   align-items: center;
   gap: 12px;
+  position: relative;
 }
-header h1 { font-size: 20px; font-weight: 600; color: var(--cyan-400); }
+header::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(to right, var(--cyan-500), var(--cyan-400) 30%, transparent 70%);
+  opacity: 0.6;
+  pointer-events: none;
+}
+header h1 { font-size: 20px; font-weight: 600; color: var(--cyan-400); letter-spacing: -0.01em; }
 header .subtitle { color: var(--text-secondary); font-size: 13px; }
 
 /* ── Tab Bar ── */
@@ -59,8 +71,10 @@ header .subtitle { color: var(--text-secondary); font-size: 13px; }
   align-items: flex-end;
   gap: 2px;
   min-height: 40px;
-  overflow-x: hidden;
+  overflow-x: auto;
+  scrollbar-width: none;
 }
+#tab-bar::-webkit-scrollbar { display: none; }
 #tab-bar.visible { display: flex; }
 
 .tab-item {
@@ -135,23 +149,41 @@ main {
 #drop-zone {
   border: 2px dashed var(--border);
   border-radius: var(--radius-xl);
-  padding: 64px 40px;
+  padding: 56px 40px;
   text-align: center;
   cursor: pointer;
-  transition: border-color var(--transition), background var(--transition), transform var(--transition);
+  transition: border-color var(--transition), background var(--transition), transform var(--transition), box-shadow var(--transition);
   background: var(--bg-surface);
   margin-bottom: 24px;
 }
 #drop-zone:hover, #drop-zone.drag-over {
   border-color: var(--cyan-400);
   background: rgba(34, 211, 238, 0.04);
+  box-shadow: inset 0 0 40px rgba(34, 211, 238, 0.03);
 }
-#drop-zone.drag-over { transform: scale(1.01); }
-#drop-zone .drop-icon { font-size: 48px; display: block; margin-bottom: 16px; }
+#drop-zone.drag-over {
+  transform: scale(1.01);
+  box-shadow: inset 0 0 60px rgba(34, 211, 238, 0.06), 0 0 0 4px rgba(34, 211, 238, 0.08);
+}
+#drop-zone .drop-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 18px;
+  color: var(--cyan-400);
+  opacity: 0.7;
+  transition: opacity var(--transition), transform var(--transition);
+}
+#drop-zone:hover .drop-icon,
+#drop-zone.drag-over .drop-icon {
+  opacity: 1;
+  transform: translateY(-3px);
+}
 #drop-zone h2 { font-size: 18px; margin-bottom: 8px; }
 #drop-zone p { color: var(--text-secondary); font-size: 13px; }
 #drop-zone .browse-link { color: var(--cyan-400); text-decoration: underline; cursor: pointer; }
-#drop-zone .hint { margin-top: 10px; font-size: 11px; color: var(--border); }
+#drop-zone .browse-link:hover { color: var(--cyan-300); }
+#drop-zone .hint { margin-top: 10px; font-size: 11px; color: #4b5563; }
 #file-input { display: none; }
 
 /* ── File Info ── */
@@ -159,6 +191,7 @@ main {
   display: none;
   background: var(--bg-surface);
   border: 1px solid var(--border);
+  border-left: 3px solid var(--cyan-500);
   border-radius: var(--radius-md);
   padding: 10px 16px;
   margin-bottom: 14px;
@@ -171,6 +204,12 @@ main {
 #file-info.visible { display: flex; }
 #file-info strong { color: var(--text-primary); }
 #file-info .sep { color: var(--border); }
+.file-info-name {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--cyan-400);
+}
 
 /* ── Toolbar ── */
 #toolbar {
@@ -513,7 +552,7 @@ thead {
   position: sticky;
   top: 0;
   z-index: 10;
-  background: #1a2535;
+  background: var(--bg-elevated);
 }
 th {
   padding: 10px 14px;
@@ -773,8 +812,11 @@ td.row-num {
   background: transparent;
   color: var(--text-primary);
   justify-content: flex-start;
+  gap: 8px;
+  font-size: 13px;
 }
 .export-menu button:hover { background: rgba(34, 211, 238, 0.07); color: var(--cyan-400); }
+.export-menu button svg { flex-shrink: 0; opacity: 0.7; }
 
 /* ── Pagination Bar ── */
 #pagination-bar {
@@ -825,6 +867,22 @@ td.row-num {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: #4b5563; }
+
+/* ── Focus Visible ── */
+:focus-visible {
+  outline: 2px solid var(--cyan-400);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+.styled-btn:focus-visible {
+  outline: 2px solid var(--cyan-400);
+  outline-offset: 3px;
+}
+button:not(.styled-btn):focus-visible {
+  outline: 2px solid var(--cyan-400);
+  outline-offset: 2px;
+}
+input:focus-visible { outline: none; }
 
 /* ── Accessibility ── */
 .sr-only {
