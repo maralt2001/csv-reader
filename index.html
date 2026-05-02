@@ -123,7 +123,14 @@
 
   <!-- Column Toggle Panel -->
   <div id="col-panel">
-    <h3>Spalten ein-/ausblenden</h3>
+    <div class="col-panel-header">
+      <h3>Spalten ein-/ausblenden</h3>
+      <div class="col-panel-actions">
+        <button class="col-action-btn" id="col-all-btn">Alle</button>
+        <button class="col-action-btn" id="col-none-btn">Keine</button>
+      </div>
+    </div>
+    <input type="text" id="col-filter" class="col-filter-input" placeholder="Spalten filtern …" autocomplete="off">
     <div class="col-toggles" id="col-toggles"></div>
   </div>
 

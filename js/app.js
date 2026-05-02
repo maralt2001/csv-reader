@@ -30,6 +30,7 @@ const tableBody     = $('table-body');
 const searchInput   = $('search-input');
 const colPanel      = $('col-panel');
 const colToggles    = $('col-toggles');
+const colFilter     = $('col-filter');
 const statusBar     = $('status-bar');
 const exportMenu    = $('export-menu');
 const regexCheckbox = $('regex-checkbox');
@@ -224,22 +225,28 @@ function hideUI() {
 // ── Column Toggles ───────────────────────────────────────────────────────────
 function buildColumnToggles() {
   const tab = activeTab();
+  const filterVal = colFilter ? colFilter.value.toLowerCase() : '';
   colToggles.innerHTML = '';
-  tab.headers.forEach(h => {
-    const label = document.createElement('label');
-    label.className = 'col-toggle';
-    const cb = document.createElement('input');
-    cb.type    = 'checkbox';
-    cb.checked = !tab.hiddenCols.has(h);
-    cb.addEventListener('change', () => {
-      tab.hiddenCols[cb.checked ? 'delete' : 'add'](h);
-      tab.currentPage = 1;
-      render();
+  tab.headers
+    .filter(h => h.toLowerCase().includes(filterVal))
+    .forEach(h => {
+      const label = document.createElement('label');
+      label.className = 'col-toggle';
+      label.title = h;
+      const cb = document.createElement('input');
+      cb.type    = 'checkbox';
+      cb.checked = !tab.hiddenCols.has(h);
+      cb.addEventListener('change', () => {
+        tab.hiddenCols[cb.checked ? 'delete' : 'add'](h);
+        tab.currentPage = 1;
+        render();
+      });
+      const span = document.createElement('span');
+      span.textContent = h;
+      label.appendChild(cb);
+      label.appendChild(span);
+      colToggles.appendChild(label);
     });
-    label.appendChild(cb);
-    label.appendChild(document.createTextNode(h));
-    colToggles.appendChild(label);
-  });
 }
 
 // ── Pagination ────────────────────────────────────────────────────────────────
@@ -551,7 +558,29 @@ regexCheckbox.addEventListener('change', e => {
   render();
 });
 
-$('toggle-cols-btn').addEventListener('click', () => colPanel.classList.toggle('visible'));
+$('toggle-cols-btn').addEventListener('click', () => {
+  colPanel.classList.toggle('visible');
+  if (colPanel.classList.contains('visible')) {
+    colFilter.value = '';
+    buildColumnToggles();
+    colFilter.focus();
+  }
+});
+colFilter.addEventListener('input', () => buildColumnToggles());
+$('col-all-btn').addEventListener('click', () => {
+  const tab = activeTab();
+  tab.hiddenCols.clear();
+  tab.currentPage = 1;
+  render();
+  buildColumnToggles();
+});
+$('col-none-btn').addEventListener('click', () => {
+  const tab = activeTab();
+  tab.headers.forEach(h => tab.hiddenCols.add(h));
+  tab.currentPage = 1;
+  render();
+  buildColumnToggles();
+});
 $('clear-btn').addEventListener('click', () => closeTab(activeTabIdx));
 
 $('export-btn').addEventListener('click', e => { e.stopPropagation(); exportMenu.classList.toggle('open'); });
